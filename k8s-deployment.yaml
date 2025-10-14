@@ -25,20 +25,21 @@ spec:
           ports:
             - containerPort: 8080
 
-          # 🚨 ADD LIVENESS AND READINESS PROBES HERE 🚨
           livenessProbe:
-            tcpSocket:                 # <-- CHANGE: Use simple TCP check
-              port: 8080               # Check if the port is accepting connections
-            initialDelaySeconds: 20    # Set to 20s (less than the 30s you had, but > 7s startup)
+            httpGet:
+              # The standard Actuator health path
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 45 # Give Spring Boot enough time to start
             periodSeconds: 20
-            timeoutSeconds: 5
+            # ... rest of settings ...
           readinessProbe:
             httpGet:
-              path: /api/v1/risk/ping  # <-- Keep the original HTTP check
+              # The standard Actuator health path
+              path: /actuator/health
               port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 15
-            timeoutSeconds: 3
+            initialDelaySeconds: 15
+            periodSeconds: 10
 ---
 # 2. Kubernetes Service: Exposes the Deployment to the outside world
 apiVersion: v1
