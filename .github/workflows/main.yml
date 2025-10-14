@@ -11,16 +11,16 @@ env:
   # Example value: ella-kim913/risk-score-service
   GHCR_PATH: ${{ vars.GHCR_LOWERCASE_REPO }}
 
-  # Standard GitHub context variables
+  # Standard GitHub context variables (NO custom logic here to avoid parser errors)
   FULL_SHA: ${{ github.sha }}
-  SHORT_SHA: ${{ github.sha }}:7]
 
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write # Necessary to push to GitHub Container Registry AND needed by test reporter
+      checks: write # Needed for dorny/test-reporter
 
     steps:
       - name: Checkout repository
@@ -51,17 +51,16 @@ jobs:
         with:
           context: .
           push: true
-          # CRITICAL FIX: Using the clean GHCR_PATH variable ensures valid lowercase repository names
+          # FIXED TAGS: Using only the reliable FULL_SHA and 'latest' tags
           tags: |
             ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.FULL_SHA }}
-            ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.SHORT_SHA }}
             ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Publish Test Results
         uses: dorny/test-reporter@v1
-        if: always()
+        if: always() # Run even if Maven fails
         with:
           name: Unit Test Report
           path: target/surefire-reports/TEST-*.xml
@@ -74,23 +73,22 @@ jobs:
     needs: build-and-push-image
     runs-on: ubuntu-latest
 
-    # Needs permissions to read artifacts and authenticate to GCP
     permissions:
       contents: read
-      packages: read
-      id-token: write
+      packages: read # Needed to ensure package access for job dependencies
+      id-token: write # Required for Google's authentication method
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. AUTHENTICATE TO GCP (USING SA KEY SECRET)
+      # 1. AUTHENTICATE TO GCP
       - id: 'auth'
         uses: 'google-github-actions/auth@v2'
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 2. GET GKE CREDENTIALS (Configures kubectl, relies on Step 1 authentication)
+      # 2. GET GKE CREDENTIALS (Configures kubectl)
       - name: Configure GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
@@ -105,13 +103,12 @@ jobs:
       # 4. DEPLOY: Update the K8s Deployment with the new image tag
       - name: Deploy New Image Version
         run: |
-          # Use the immutable short SHA tag for deployment safety
-          FULL_IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.SHORT_SHA }}"
+          # Use the full, immutable SHA for deployment (most traceable version)
+          FULL_IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.FULL_SHA }}"
           
           echo "Deploying image: $FULL_IMAGE_TAG"
           
           # This command triggers the rolling update on GKE
-          # risk-score-container must match the container 'name' in k8s-deployment.yaml
           kubectl set image deployment/risk-score-deployment risk-score-container=$FULL_IMAGE_TAG --record
 
       # 5. VERIFY: Wait for the rolling update to complete
