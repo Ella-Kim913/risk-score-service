@@ -71,9 +71,9 @@ jobs:
           push: true
           # Tag with the full SHA and a short SHA for easy identification
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest # Also tag as 'latest'
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWERCASE }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWERCASE }}:${{ env.SHORT_SHA }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWERCASE }}:latest # Also tag as 'latest'
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
