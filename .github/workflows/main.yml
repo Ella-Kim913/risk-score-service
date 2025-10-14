@@ -9,7 +9,7 @@ env:
   # Define variables once for use throughout the workflow
   REGISTRY: ghcr.io
   # IMAGE_NAME automatically becomes <your_username>/risk-score-service
-  IMAGE_NAME: ${{ lower(github.repository) }} 
+  IMAGE_NAME: ${{ github.repository }} 
   # TAG is the unique commit SHA (version)
   TAG: ${{ github.sha }}
   # Short tag for convenience
@@ -25,6 +25,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      # 1. Calculate Lowercase Image Name and Short SHA (FIXES BOTH ERRORS)
+      - name: Calculate Image Name and Tags
+        id: vars
+        run: |
+          # Use Bash string manipulation (available on Ubuntu runner) to lowercase the repo name
+          # The ${VAR,,} syntax forces lowercase
+          IMAGE_NAME_LOWERCASE=${{ github.repository }}
+          
+          # The next line creates an output variable for use in subsequent steps:
+          echo "IMAGE_NAME_LOWERCASE=${IMAGE_NAME_LOWERCASE,,}" >> $GITHUB_OUTPUT
+          
+          # Use Bash string slicing to get the short SHA
+          echo "SHORT_SHA_CLEAN=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          
+          # To ensure the workflow definition itself is valid, we remove the env block variables
+          # that relied on the broken functions.
+
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
