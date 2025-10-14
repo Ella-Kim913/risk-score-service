@@ -13,7 +13,7 @@ env:
 
   # Standard GitHub context variables
   FULL_SHA: ${{ github.sha }}
-  SHORT_SHA: ${{ github.sha }}[0:7] # Corrected slice syntax
+  SHORT_SHA: ${{ github.sha }}:7]
 
 jobs:
   build-and-push-image:
