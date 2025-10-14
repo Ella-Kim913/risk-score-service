@@ -21,8 +21,8 @@ spec:
       containers:
         - name: risk-score-container
           # IMPORTANT: For local Minikube/Kind, use the image you built locally
-          image: risk-score-service:v1
-          imagePullPolicy: Never # Tell K8s not to look for the image in a remote registry
+          image: ghcr.io/Ella-Kim913/risk-score-service:latest
+          imagePullPolicy: Always # <-- CHANGE: Always pull the newest image from the registry
           ports:
             - containerPort: 8080
 ---
