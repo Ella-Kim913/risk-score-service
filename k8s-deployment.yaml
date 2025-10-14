@@ -28,14 +28,14 @@ spec:
           # 🚨 ADD LIVENESS AND READINESS PROBES HERE 🚨
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /api/v1/risk/ping
               port: 8080
             initialDelaySeconds: 30  # Give Spring Boot time to start up
             periodSeconds: 15        # Check every 15 seconds
             timeoutSeconds: 5        # Wait 5 seconds before failing
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /api/v1/risk/ping
               port: 8080
             initialDelaySeconds: 10  # Start checking readiness sooner
             periodSeconds: 10

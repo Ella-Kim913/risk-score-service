@@ -24,9 +24,11 @@ public class RiskScoreController {
         return riskCalculationService.calculateRisk(metrics);
     }
 
-    @GetMapping("/healthz")
-    public String healthCheck() {
-        // This is the fastest check, only ensuring the Controller is running.
-        return "OK";
+    // RENAME AND SIMPLIFY: Use a unique path and map it to the root (absolute path).
+    @GetMapping({"/ping", "/health"}) // Maps to /api/v1/risk/ping
+    public String pingCheck() {
+        return "Service Healthy";
     }
 }
+
+
