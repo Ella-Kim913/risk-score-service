@@ -20,11 +20,26 @@ spec:
     spec:
       containers:
         - name: risk-score-container
-          # IMPORTANT: For local Minikube/Kind, use the image you built locally
           image: ghcr.io/ella-kim913/risk-score-service:latest
           imagePullPolicy: Always # <-- CHANGE: Always pull the newest image from the registry
           ports:
             - containerPort: 8080
+
+          # 🚨 ADD LIVENESS AND READINESS PROBES HERE 🚨
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30  # Give Spring Boot time to start up
+            periodSeconds: 15        # Check every 15 seconds
+            timeoutSeconds: 5        # Wait 5 seconds before failing
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10  # Start checking readiness sooner
+            periodSeconds: 10
+            timeoutSeconds: 3
 ---
 # 2. Kubernetes Service: Exposes the Deployment to the outside world
 apiVersion: v1

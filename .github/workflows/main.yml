@@ -78,9 +78,14 @@ jobs:
           cache-to: type=gha,mode=max 
 
   ### The Deployment Job (Simulated Deployment) ###
-  deploy-to-cluster:
+  deploy-to-gke:
     needs: build-and-push-image
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+      id-token: write # Required for Google's authentication method
 
     steps:
       - name: Checkout code
@@ -89,19 +94,30 @@ jobs:
       - name: Install kubectl (Required for deployment)
         uses: azure/setup-kubectl@v3 # Standard GitHub action to get kubectl
 
-      - name: Simulate Deployment to External Cluster
+      # 1. AUTHENTICATE: Inject the Kubeconfig data from the GitHub Secret
+      - name: Configure GKE Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          # Writes the entire YAML block from your GitHub Secret to the runner's config file
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" > ~/.kube/config
+          
+          # Sets the KUBECONFIG environment variable for kubectl
+          export KUBECONFIG=~/.kube/config
+          
+          # VERIFY: Check if the connection works and points to the correct cluster
+          kubectl cluster-info
+          kubectl get nodes 
+
+      # 2. DEPLOY: Update the K8s Deployment with the new image tag
+      - name: Deploy New Image Version
         run: |
           FULL_IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}"
           
-          echo "--- Beginning Automated Deployment ---"
-          echo "New image tag: $FULL_IMAGE_TAG"
-          
-          # ⚠️ FOR A REAL DEPLOYMENT TO GKE/EKS/AKS:
-          # You would configure cloud credentials here, set the KUBECONFIG variable,
-          # and then use kubectl to update the image tag on the running Deployment.
-          
-          # Example of the command you would run on a real cluster:
-          # kubectl set image deployment/risk-score-deployment risk-score-container=$FULL_IMAGE_TAG
-          
-          echo "Deployment successful (simulated). Rollout status check would follow."
-          echo "--- CI/CD Pipeline End ---"
+          # This command tells the GKE Deployment to pull the newly built image
+          # risk-score-container is the name of the container in your k8s-deployment.yaml
+          kubectl set image deployment/risk-score-deployment risk-score-container=$FULL_IMAGE_TAG --record
+
+      # 3. VERIFY: Wait for the rolling update to complete
+      - name: Verify Deployment Rollout Status
+        run: |
+          kubectl rollout status deployment/risk-score-deployment --timeout=5m
