@@ -94,19 +94,25 @@ jobs:
       - name: Install kubectl (Required for deployment)
         uses: azure/setup-kubectl@v3 # Standard GitHub action to get kubectl
 
-      # 1. AUTHENTICATE: Inject the Kubeconfig data from the GitHub Secret
-      - name: Configure GKE Kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          # Writes the entire YAML block from your GitHub Secret to the runner's config file
-          echo "${{ secrets.KUBE_CONFIG_DATA }}" > ~/.kube/config
-          
-          # Sets the KUBECONFIG environment variable for kubectl
-          export KUBECONFIG=~/.kube/config
-          
-          # VERIFY: Check if the connection works and points to the correct cluster
-          kubectl cluster-info
-          kubectl get nodes 
+      # --- AUTHENTICATION FIX: Replace the manual config step ---
+
+      # 1. Authenticate to GCP (This is where the magic happens)
+      #    NOTE: You must set up Workload Identity Federation in GCP for this to work
+      #    If you haven't set up WIF, use the simpler but less secure method below.
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}' # Placeholder for a Service Account Key (less secure)
+
+      # 2. Get GKE Credentials (Configures kubectl to talk to your cluster)
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: 'riskscore-cluster-1' # Your Cluster Name
+          location: 'us-central1'             # Your Cluster Region
+          project_id: 'ancient-dragon-429002-n8' # Your Project ID
+
+      # 3. Setup Kubectl (Still needed to install the kubectl binary)
+      - uses: azure/setup-kubectl@v3
 
       # 2. DEPLOY: Update the K8s Deployment with the new image tag
       - name: Deploy New Image Version
