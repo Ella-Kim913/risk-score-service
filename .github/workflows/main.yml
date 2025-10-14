@@ -31,13 +31,13 @@ jobs:
         run: |
           # Use Bash string manipulation (available on Ubuntu runner) to lowercase the repo name
           # The ${VAR,,} syntax forces lowercase
-          IMAGE_NAME_LOWERCASE=${{ github.repository }}
+          REPO_LOWERCASE=${{ github.repository }}
           
           # The next line creates an output variable for use in subsequent steps:
-          echo "IMAGE_NAME_LOWERCASE=${IMAGE_NAME_LOWERCASE,,}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME_LOWERCASE=${REPO_LOWERCASE,,}" >> $GITHUB_OUTPUT
           
           # Use Bash string slicing to get the short SHA
-          echo "SHORT_SHA_CLEAN=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA_CLEAN=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT 
           
           # To ensure the workflow definition itself is valid, we remove the env block variables
           # that relied on the broken functions.
@@ -67,15 +67,15 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: . # Use the Dockerfile in the current directory
+          context: .
           push: true
-          # Tag with the full SHA and a short SHA for easy identification
+          # CRITICAL FIX: Ensure all three lines correctly reference the output variable and tag components
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWERCASE }}:${{ env.TAG }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWERCASE }}:${{ env.SHORT_SHA }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWERCASE }}:latest # Also tag as 'latest'
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ghcr.io/${{ steps.vars.outputs.IMAGE_NAME_LOWERCASE }}:${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.IMAGE_NAME_LOWERCASE }}:${{ steps.vars.outputs.SHORT_SHA_CLEAN }}
+            ghcr.io/${{ steps.vars.outputs.IMAGE_NAME_LOWERCASE }}:latest
+          cache-from: type=gha 
+          cache-to: type=gha,mode=max 
 
   ### The Deployment Job (Simulated Deployment) ###
   deploy-to-cluster:
