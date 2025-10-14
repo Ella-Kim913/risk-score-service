@@ -96,23 +96,19 @@ jobs:
 
       # --- AUTHENTICATION FIX: Replace the manual config step ---
 
-      # 1. Authenticate to GCP (This is where the magic happens)
-      #    NOTE: You must set up Workload Identity Federation in GCP for this to work
-      #    If you haven't set up WIF, use the simpler but less secure method below.
-      - id: 'auth'
-        uses: 'google-github-actions/auth@v2'
+      # ⚠️ FIX: Use the specific action to get GKE credentials and configure kubectl.
+      # This action handles the installation of the 'gke-gcloud-auth-plugin' executable.
+      - name: Configure GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}' # Placeholder for a Service Account Key (less secure)
-
-      # 2. Get GKE Credentials (Configures kubectl to talk to your cluster)
-      - uses: google-github-actions/get-gke-credentials@v2
-        with:
+          # You MUST replace these placeholders with your actual values from the GKE cluster:
           cluster_name: 'riskscore-cluster-1' # Your Cluster Name
-          location: 'us-central1'             # Your Cluster Region
+          location: 'us-central1'             # Your Cluster Region/Zone
           project_id: 'ancient-dragon-429002-n8' # Your Project ID
 
-      # 3. Setup Kubectl (Still needed to install the kubectl binary)
-      - uses: azure/setup-kubectl@v3
+      # 2. Setup Kubectl (Still needed to install the kubectl binary)
+      - name: Setup Kubectl
+        uses: azure/setup-kubectl@v3
 
       # 2. DEPLOY: Update the K8s Deployment with the new image tag
       - name: Deploy New Image Version
