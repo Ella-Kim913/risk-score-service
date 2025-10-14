@@ -13,7 +13,7 @@ env:
   # TAG is the unique commit SHA (version)
   TAG: ${{ github.sha }}
   # Short tag for convenience
-  SHORT_SHA: ${{ substr(github.sha, 0, 7) }}
+  SHORT_SHA: ${{ github.sha }}:7] 
 
 jobs:
   build-and-push-image:
