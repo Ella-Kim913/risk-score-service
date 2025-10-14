@@ -52,6 +52,9 @@ jobs:
           context: .
           push: true
           # FIXED TAGS: Using only the reliable FULL_SHA and 'latest' tags
+
+          platforms: linux/amd64,linux/arm64
+
           tags: |
             ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.FULL_SHA }}
             ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:latest
