@@ -6,43 +6,26 @@ on:
       - main
 
 env:
-  # Define variables once for use throughout the workflow
   REGISTRY: ghcr.io
-  # IMAGE_NAME automatically becomes <your_username>/risk-score-service
-  IMAGE_NAME: ${{ github.repository }} 
-  # TAG is the unique commit SHA (version)
-  TAG: ${{ github.sha }}
-  # Short tag for convenience
-  SHORT_SHA: ${{ github.sha }}:7] 
+  # This variable must be manually set in GitHub Repo Settings (Environment Variables)
+  # Example value: ella-kim913/risk-score-service
+  GHCR_PATH: ${{ vars.GHCR_LOWERCASE_REPO }}
+
+  # Standard GitHub context variables
+  FULL_SHA: ${{ github.sha }}
+  SHORT_SHA: ${{ github.sha }}[0:7] # Corrected slice syntax
 
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Necessary to push to GitHub Container Registry
+      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      # 1. Calculate Lowercase Image Name and Short SHA (FIXES BOTH ERRORS)
-      - name: Calculate Image Name and Tags
-        id: vars
-        run: |
-          # Use Bash string manipulation (available on Ubuntu runner) to lowercase the repo name
-          # The ${VAR,,} syntax forces lowercase
-          REPO_LOWERCASE=${{ github.repository }}
-          
-          # The next line creates an output variable for use in subsequent steps:
-          echo "IMAGE_NAME_LOWERCASE=${REPO_LOWERCASE,,}" >> $GITHUB_OUTPUT
-          
-          # Use Bash string slicing to get the short SHA
-          echo "SHORT_SHA_CLEAN=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT 
-          
-          # To ensure the workflow definition itself is valid, we remove the env block variables
-          # that relied on the broken functions.
 
-        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -60,8 +43,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }} # Your GitHub username
-          # Uses the built-in GITHUB_TOKEN for password
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker Image
@@ -69,37 +51,46 @@ jobs:
         with:
           context: .
           push: true
-          # CRITICAL FIX: Ensure all three lines correctly reference the output variable and tag components
+          # CRITICAL FIX: Using the clean GHCR_PATH variable ensures valid lowercase repository names
           tags: |
-            ghcr.io/${{ steps.vars.outputs.IMAGE_NAME_LOWERCASE }}:${{ github.sha }}
-            ghcr.io/${{ steps.vars.outputs.IMAGE_NAME_LOWERCASE }}:${{ steps.vars.outputs.SHORT_SHA_CLEAN }}
-            ghcr.io/${{ steps.vars.outputs.IMAGE_NAME_LOWERCASE }}:latest
-          cache-from: type=gha 
-          cache-to: type=gha,mode=max 
+            ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.FULL_SHA }}
+            ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.SHORT_SHA }}
+            ${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  ### The Deployment Job (Simulated Deployment) ###
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Report
+          path: target/surefire-reports/TEST-*.xml
+          reporter: java-junit
+          fail-on-error: true
+
+  # --------------------------------------------------------------------------------------------------
+
   deploy-to-gke:
     needs: build-and-push-image
     runs-on: ubuntu-latest
 
+    # Needs permissions to read artifacts and authenticate to GCP
     permissions:
       contents: read
       packages: read
-      id-token: write # Required for Google's authentication method
+      id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. AUTHENTICATE TO GCP (USING THE SA KEY)
+      # 1. AUTHENTICATE TO GCP (USING SA KEY SECRET)
       - id: 'auth'
         uses: 'google-github-actions/auth@v2'
         with:
-          # This injects the Service Account's JSON key to grant the runner access
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 2. GET GKE CREDENTIALS
-      #    This step now runs successfully because the runner has a valid GCP identity (the SA).
+      # 2. GET GKE CREDENTIALS (Configures kubectl, relies on Step 1 authentication)
       - name: Configure GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
@@ -107,20 +98,23 @@ jobs:
           location: 'us-central1'
           project_id: 'ancient-dragon-429002-n8'
 
-      # 3. Setup Kubectl (Still needed to install the kubectl binary)
+      # 3. Setup Kubectl (Installs the kubectl binary)
       - name: Setup Kubectl
         uses: azure/setup-kubectl@v3
 
-      # 2. DEPLOY: Update the K8s Deployment with the new image tag
+      # 4. DEPLOY: Update the K8s Deployment with the new image tag
       - name: Deploy New Image Version
         run: |
-          FULL_IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}"
+          # Use the immutable short SHA tag for deployment safety
+          FULL_IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GHCR_PATH }}:${{ env.SHORT_SHA }}"
           
-          # This command tells the GKE Deployment to pull the newly built image
-          # risk-score-container is the name of the container in your k8s-deployment.yaml
+          echo "Deploying image: $FULL_IMAGE_TAG"
+          
+          # This command triggers the rolling update on GKE
+          # risk-score-container must match the container 'name' in k8s-deployment.yaml
           kubectl set image deployment/risk-score-deployment risk-score-container=$FULL_IMAGE_TAG --record
 
-      # 3. VERIFY: Wait for the rolling update to complete
+      # 5. VERIFY: Wait for the rolling update to complete
       - name: Verify Deployment Rollout Status
         run: |
           kubectl rollout status deployment/risk-score-deployment --timeout=5m
