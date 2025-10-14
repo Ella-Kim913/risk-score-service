@@ -1,0 +1,41 @@
+# k8s-deployment.yaml
+
+---
+# 1. Kubernetes Deployment: Manages the application containers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-score-deployment
+  labels:
+    app: risk-score
+spec:
+  replicas: 1 # Start with 1 replica
+  selector:
+    matchLabels:
+      app: risk-score
+  template:
+    metadata:
+      labels:
+        app: risk-score
+    spec:
+      containers:
+        - name: risk-score-container
+          # IMPORTANT: For local Minikube/Kind, use the image you built locally
+          image: risk-score-service:v1
+          imagePullPolicy: Never # Tell K8s not to look for the image in a remote registry
+          ports:
+            - containerPort: 8080
+---
+# 2. Kubernetes Service: Exposes the Deployment to the outside world
+apiVersion: v1
+kind: Service
+metadata:
+  name: risk-score-service
+spec:
+  selector:
+    app: risk-score
+  type: NodePort # NodePort exposes the service on a port accessible on the Minikube IP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30001 # Optionally define a specific high port (30000-32767)
