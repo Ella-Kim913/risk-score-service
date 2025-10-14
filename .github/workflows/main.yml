@@ -91,22 +91,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install kubectl (Required for deployment)
-        uses: azure/setup-kubectl@v3 # Standard GitHub action to get kubectl
+      # 1. AUTHENTICATE TO GCP (USING THE SA KEY)
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          # This injects the Service Account's JSON key to grant the runner access
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # --- AUTHENTICATION FIX: Replace the manual config step ---
-
-      # ⚠️ FIX: Use the specific action to get GKE credentials and configure kubectl.
-      # This action handles the installation of the 'gke-gcloud-auth-plugin' executable.
+      # 2. GET GKE CREDENTIALS
+      #    This step now runs successfully because the runner has a valid GCP identity (the SA).
       - name: Configure GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
-          # You MUST replace these placeholders with your actual values from the GKE cluster:
-          cluster_name: 'riskscore-cluster-1' # Your Cluster Name
-          location: 'us-central1'             # Your Cluster Region/Zone
-          project_id: 'ancient-dragon-429002-n8' # Your Project ID
+          cluster_name: 'riskscore-cluster-1'
+          location: 'us-central1'
+          project_id: 'ancient-dragon-429002-n8'
 
-      # 2. Setup Kubectl (Still needed to install the kubectl binary)
+      # 3. Setup Kubectl (Still needed to install the kubectl binary)
       - name: Setup Kubectl
         uses: azure/setup-kubectl@v3
 
