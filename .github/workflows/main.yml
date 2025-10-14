@@ -9,7 +9,7 @@ env:
   # Define variables once for use throughout the workflow
   REGISTRY: ghcr.io
   # IMAGE_NAME automatically becomes <your_username>/risk-score-service
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ lower(github.repository) }} 
   # TAG is the unique commit SHA (version)
   TAG: ${{ github.sha }}
   # Short tag for convenience
