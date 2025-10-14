@@ -26,20 +26,18 @@ spec:
             - containerPort: 8080
 
           livenessProbe:
-            httpGet:
-              # The standard Actuator health path
-              path: /actuator/health
+            tcpSocket:                 # <-- Use TCP: Checks if the port is OPEN (Most Stable Liveness)
               port: 8080
-            initialDelaySeconds: 45 # Give Spring Boot enough time to start
-            periodSeconds: 20
-            # ... rest of settings ...
+            initialDelaySeconds: 40    # Wait 40s (7s startup + 33s buffer)
+            periodSeconds: 25          # Check every 25 seconds
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
-              # The standard Actuator health path
-              path: /actuator/health
+              path: /actuator/health   # <-- Use the standard Actuator path
               port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 10
+            initialDelaySeconds: 20    # Wait 20s for the Pod to get ready
+            periodSeconds: 20
+            timeoutSeconds: 5
 ---
 # 2. Kubernetes Service: Exposes the Deployment to the outside world
 apiVersion: v1
